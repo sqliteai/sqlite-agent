@@ -1,0 +1,44 @@
+//
+//  sqlite-agent.h
+//  sqlite-agent
+//
+
+#ifndef __SQLITE_AGENT__
+#define __SQLITE_AGENT__
+
+#include <stdint.h>
+#include <stdbool.h>
+
+#ifndef SQLITE_CORE
+#include "sqlite3ext.h"
+#else
+#include "sqlite3.h"
+#endif
+
+#ifdef _WIN32
+  #define SQLITE_AGENT_API __declspec(dllexport)
+#else
+  #define SQLITE_AGENT_API
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define SQLITE_AGENT_VERSION "0.1.0"
+
+/**
+ * SQLite extension entry point
+ *
+ * @param db SQLite database connection
+ * @param pzErrMsg Error message output
+ * @param pApi SQLite API routines
+ * @return SQLITE_OK on success, error code otherwise
+ */
+SQLITE_AGENT_API int sqlite3_agent_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines *pApi);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __SQLITE_AGENT__ */
