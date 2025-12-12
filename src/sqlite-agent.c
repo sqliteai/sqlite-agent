@@ -2,6 +2,8 @@
 //  sqlite-agent.c
 //  sqlite-agent
 //
+//  Created by Gioele Cantoni on 05/11/25.
+//
 
 #define AGENT_DEBUG 1
 

@@ -1,3 +1,10 @@
+#
+#  Makefile
+#  sqlite-agent
+#
+#  Created by Gioele Cantoni on 05/11/25.
+#
+
 # Makefile for SQLite Agent Extension
 # Supports compilation for Linux, macOS, Windows, Android and iOS
 

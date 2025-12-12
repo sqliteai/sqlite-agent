@@ -2,6 +2,8 @@
 //  sqlite-agent.h
 //  sqlite-agent
 //
+//  Created by Gioele Cantoni on 05/11/25.
+//
 
 #ifndef __SQLITE_AGENT__
 #define __SQLITE_AGENT__
