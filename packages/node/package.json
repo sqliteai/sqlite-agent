@@ -1,0 +1,68 @@
+{
+  "name": "@sqliteai/sqlite-agent",
+  "version": "0.1.0",
+  "description": "SQLite Agent extension for Node.js - Run autonomous AI agents, using other SQLite AI extensions.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "npm run build",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "generate-platforms": "node generate-platform-packages.js"
+  },
+  "keywords": [
+    "sqlite",
+    "agent",
+    "ai",
+    "agent-database",
+    "sqlite-extension"
+  ],
+  "author": "Gioele Cantoni (gioele@sqlitecloud.io)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sqliteai/sqlite-agent.git",
+    "directory": "packages/node"
+  },
+  "homepage": "https://github.com/sqliteai/sqlite-agent#readme",
+  "bugs": {
+    "url": "https://github.com/sqliteai/sqlite-agent/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "optionalDependencies": {
+    "@sqliteai/sqlite-agent-darwin-arm64": "0.1.0",
+    "@sqliteai/sqlite-agent-darwin-x86_64": "0.1.0",
+    "@sqliteai/sqlite-agent-linux-arm64": "0.1.0",
+    "@sqliteai/sqlite-agent-linux-arm64-musl": "0.1.0",
+    "@sqliteai/sqlite-agent-linux-x86_64": "0.1.0",
+    "@sqliteai/sqlite-agent-linux-x86_64-musl": "0.1.0",
+    "@sqliteai/sqlite-agent-win32-x86_64": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^3.2.4"
+  }
+}

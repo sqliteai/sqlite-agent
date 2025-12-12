@@ -224,6 +224,20 @@ $(DIST_DIR)/%.xcframework: $(LIB_NAMES)
 
 xcframework: $(DIST_DIR)/agent.xcframework
 
+AAR_ARM64 = packages/android/src/main/jniLibs/arm64-v8a/
+AAR_ARM = packages/android/src/main/jniLibs/armeabi-v7a/
+AAR_X86 = packages/android/src/main/jniLibs/x86_64/
+aar:
+	mkdir -p $(AAR_ARM64) $(AAR_ARM) $(AAR_X86)
+	$(MAKE) clean && $(MAKE) PLATFORM=android ARCH=arm64-v8a
+	mv $(DIST_DIR)/agent.so $(AAR_ARM64)
+	$(MAKE) clean && $(MAKE) PLATFORM=android ARCH=armeabi-v7a
+	mv $(DIST_DIR)/agent.so $(AAR_ARM)
+	$(MAKE) clean && $(MAKE) PLATFORM=android ARCH=x86_64
+	mv $(DIST_DIR)/agent.so $(AAR_X86)
+	cd packages/android && ./gradlew clean assembleRelease
+	cp packages/android/build/outputs/aar/android-release.aar $(DIST_DIR)/agent.aar
+
 # Extract version from header
 version:
 	@echo $(shell sed -n 's/^#define SQLITE_AGENT_VERSION[[:space:]]*"\([^"]*\)".*/\1/p' $(SRC_DIR)/sqlite-agent.h)
