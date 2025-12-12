@@ -159,6 +159,64 @@ github: extension
 clean:
 	rm -rf $(BUILD_DIR) $(DIST_DIR)
 
+.NOTPARALLEL: %.dylib
+%.dylib:
+	rm -rf $(BUILD_DIR) && $(MAKE) PLATFORM=$*
+	mv $(DIST_DIR)/agent.dylib $(DIST_DIR)/$@
+
+define PLIST
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\
+<plist version=\"1.0\">\
+<dict>\
+<key>CFBundleDevelopmentRegion</key>\
+<string>en</string>\
+<key>CFBundleExecutable</key>\
+<string>agent</string>\
+<key>CFBundleIdentifier</key>\
+<string>ai.sqlite.agent</string>\
+<key>CFBundleInfoDictionaryVersion</key>\
+<string>6.0</string>\
+<key>CFBundlePackageType</key>\
+<string>FMWK</string>\
+<key>CFBundleSignature</key>\
+<string>????</string>\
+<key>CFBundleVersion</key>\
+<string>$(shell make version)</string>\
+<key>CFBundleShortVersionString</key>\
+<string>$(shell make version)</string>\
+<key>MinimumOSVersion</key>\
+<string>11.0</string>\
+</dict>\
+</plist>
+endef
+
+define MODULEMAP
+framework module agent {\
+  umbrella header \"sqlite-agent.h\"\
+  export *\
+}
+endef
+
+LIB_NAMES = ios.dylib ios-sim.dylib macos.dylib
+FMWK_NAMES = ios-arm64 ios-arm64_x86_64-simulator macos-arm64_x86_64
+$(DIST_DIR)/%.xcframework: $(LIB_NAMES)
+	@$(foreach i,1 2 3,\
+		lib=$(word $(i),$(LIB_NAMES)); \
+		fmwk=$(word $(i),$(FMWK_NAMES)); \
+		mkdir -p $(DIST_DIR)/$$fmwk/agent.framework/Headers; \
+		mkdir -p $(DIST_DIR)/$$fmwk/agent.framework/Modules; \
+		cp $(SRC_DIR)/sqlite-agent.h $(DIST_DIR)/$$fmwk/agent.framework/Headers; \
+		printf "$(PLIST)" > $(DIST_DIR)/$$fmwk/agent.framework/Info.plist; \
+		printf "$(MODULEMAP)" > $(DIST_DIR)/$$fmwk/agent.framework/Modules/module.modulemap; \
+		mv $(DIST_DIR)/$$lib $(DIST_DIR)/$$fmwk/agent.framework/agent; \
+		install_name_tool -id "@rpath/agent.framework/agent" $(DIST_DIR)/$$fmwk/agent.framework/agent; \
+	)
+	xcodebuild -create-xcframework $(foreach fmwk,$(FMWK_NAMES),-framework $(DIST_DIR)/$(fmwk)/agent.framework) -output $@
+	rm -rf $(foreach fmwk,$(FMWK_NAMES),$(DIST_DIR)/$(fmwk))
+
+xcframework: $(DIST_DIR)/agent.xcframework
+
 # Extract version from header
 version:
 	@echo $(shell sed -n 's/^#define SQLITE_AGENT_VERSION[[:space:]]*"\([^"]*\)".*/\1/p' $(SRC_DIR)/sqlite-agent.h)
