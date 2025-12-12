@@ -79,6 +79,7 @@ else ifeq ($(PLATFORM),android)
 	CC = $(BIN)/$(ARCH)-linux-android26-clang
 	TARGET := $(DIST_DIR)/agent.so
 	LDFLAGS += -shared
+	CFLAGS += -fPIC
 	STRIP = $(BIN)/llvm-strip --strip-unneeded $@
 else ifeq ($(PLATFORM),ios)
 	TARGET := $(DIST_DIR)/agent.dylib
@@ -112,7 +113,7 @@ $(shell mkdir -p $(BUILD_DIR) $(DIST_DIR))
 all: extension
 
 $(BUILD_DIR)/%.o: %.c
-	$(CC) $(CFLAGS) -O3 -fPIC -c $< -o $@
+	$(CC) $(CFLAGS) -O3 -c $< -o $@
 
 $(TARGET): $(OBJ_FILES) $(DEF_FILE)
 	$(CC) $(CFLAGS) $(SRC_DIR)/sqlite-agent.c $(LDFLAGS) -o $@
