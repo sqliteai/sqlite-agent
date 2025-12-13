@@ -5,8 +5,9 @@
 //  Created by Gioele Cantoni on 05/11/25.
 //
 
-#define AGENT_DEBUG 1
+#define DEFAULT_AGENT_MAX_ITERATIONS 5
 
+//#define AGENT_DEBUG 1
 #ifdef AGENT_DEBUG
   #define D(x) fprintf(stderr, "[DEBUG] " x "\n")
   #define DF(fmt, ...) fprintf(stderr, "[DEBUG] " fmt "\n", __VA_ARGS__)
@@ -141,7 +142,7 @@ static void agent_run_func(
 
   const char *goal = (const char*)sqlite3_value_text(argv[0]);
   const char *table_name = NULL;
-  int max_iterations = 5;
+  int max_iterations = DEFAULT_AGENT_MAX_ITERATIONS;
   const char *custom_system_prompt = NULL;
 
   if (argc >= 2) {
