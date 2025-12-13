@@ -3,11 +3,11 @@
 ## Dependencies
 
 **Required:**
-- [sqlite-mcp](../sqlite-mcp) – MCP client for tool access
-- [sqlite-ai](../sqlite-ai) – LLM inference and embeddings
+- [sqlite-mcp](https://github.com/sqliteai/sqlite-mcp) – MCP client for tool access
+- [sqlite-ai](https://github.com/sqliteai/sqlite-ai) – LLM inference and embeddings
 
 **Optional:**
-- [sqlite-vector](../sqlite-vector) – For vector search (auto-enabled in table mode)
+- [sqlite-vector](https://github.com/sqliteai/sqlite-vector) – For vector search (auto-enabled in table mode)
 
 ---
 
