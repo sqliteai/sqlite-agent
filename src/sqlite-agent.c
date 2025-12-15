@@ -84,6 +84,14 @@ static char* agent_get_tools_list(sqlite3 *db) {
     return NULL;
   }
 
+  // Check if the result contains an error (MCP not connected)
+  if (strstr(tools_result, "\"error\"") != NULL ||
+      strstr(tools_result, "Not connected") != NULL) {
+    DF("MCP connection error detected: %s", tools_result);
+    sqlite3_finalize(stmt);
+    return NULL;
+  }
+
   char *formatted = malloc(32768);
   if (!formatted) {
     sqlite3_finalize(stmt);
@@ -456,6 +464,34 @@ static void agent_run_func(
     return;
   }
 
+  // Calculate dynamic truncation based on available context space
+  int tools_list_len = (int)strlen(tools_list);
+  int system_prompt_len = (int)strlen(system_prompt);
+  int extraction_prompt_overhead = 2000; // Overhead for extraction prompt template
+  int safety_margin = 1024; // Additional buffer for JSON overhead
+
+  // Context size (from agent_create_chat_context logic: tools_list_len * 2, min 4096)
+  int ctx_size = tools_list_len * 2;
+  if (ctx_size < 4096) ctx_size = 4096;
+
+  // Calculate available space for conversation history
+  // ctx_size must accommodate: tools_list + system_prompt + conversation_history + extraction_prompt
+  int available_for_conversation = ctx_size - tools_list_len - system_prompt_len
+                                    - extraction_prompt_overhead - safety_margin;
+
+  // Ensure minimum reasonable space
+  if (available_for_conversation < 8192) available_for_conversation = 8192;
+
+  // Assume average of max_iterations/2 tool calls, allocate space for each
+  size_t dynamic_truncate_at = available_for_conversation / ((max_iterations + 1) / 2);
+
+  // Apply reasonable bounds
+  if (dynamic_truncate_at < 4096) dynamic_truncate_at = 4096;     // Minimum per tool
+  if (dynamic_truncate_at > 50000) dynamic_truncate_at = 50000;   // Maximum per tool
+
+  DF("Dynamic truncation: ctx_size=%d, tools=%d, system=%d, available=%d, truncate_at=%zu",
+     ctx_size, tools_list_len, system_prompt_len, available_for_conversation, dynamic_truncate_at);
+
   DF("Starting agent loop with max_iterations=%d", max_iterations);
   char conversation_history[32768] = {0};
   int consecutive_errors = 0;
@@ -589,12 +625,16 @@ static void agent_run_func(
           last_error[0] = '\0';
         }
 
-        char result_msg[8192];
-        size_t truncate_at = 3000;
-        if (strlen(tool_result) > truncate_at) {
-          snprintf(result_msg, sizeof(result_msg),
-                   "Tool %s returned (truncated to %zu chars): %.3000s...\n",
-                   tool_name, truncate_at, tool_result);
+        char result_msg[16384];
+        // Use dynamic truncation calculated based on available context space
+        if (strlen(tool_result) > dynamic_truncate_at) {
+          // Dynamically create format string for truncation
+          char format_str[128];
+          snprintf(format_str, sizeof(format_str),
+                   "Tool %%s returned (truncated to %%zu chars): %%.%zus...\n",
+                   dynamic_truncate_at);
+          snprintf(result_msg, sizeof(result_msg), format_str,
+                   tool_name, dynamic_truncate_at, tool_result);
         } else {
           snprintf(result_msg, sizeof(result_msg),
                    "Tool %s returned: %s\n", tool_name, tool_result);
@@ -610,10 +650,8 @@ static void agent_run_func(
     }
   }
 
-  DF("Conversation history (length=%zu): %.500s%s",
-     strlen(conversation_history),
-     conversation_history,
-     strlen(conversation_history) > 500 ? "..." : "");
+  DF("Conversation history (length=%zu):", strlen(conversation_history));
+  DF("=== FULL CONVERSATION HISTORY ===\n%s\n=== END CONVERSATION HISTORY ===", conversation_history);
 
   char extraction_prompt[32768];
   snprintf(extraction_prompt, sizeof(extraction_prompt),
@@ -636,7 +674,7 @@ static void agent_run_func(
     "Return ONLY the JSON array:",
     schema_desc, schema_desc, conversation_history);
 
-  DF("Extraction prompt (first 500 chars): %.500s...", extraction_prompt);
+  DF("=== FULL EXTRACTION PROMPT ===\n%s\n=== END EXTRACTION PROMPT ===", extraction_prompt);
 
   sqlite3_stmt *ctx_size_stmt;
   int ctx_size_for_extraction = 0;
@@ -680,9 +718,7 @@ static void agent_run_func(
   json_copy[sizeof(json_copy) - 1] = '\0';
   sqlite3_finalize(stmt);
 
-  DF("LLM extracted JSON (first 1000 chars): %.1000s%s",
-     json_copy,
-     strlen(json_copy) > 1000 ? "..." : "");
+  DF("=== FULL EXTRACTED JSON ===\n%s\n=== END EXTRACTED JSON ===", json_copy);
 
   sqlite3_exec(db, "BEGIN TRANSACTION", 0, 0, 0);
 
