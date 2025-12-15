@@ -144,7 +144,7 @@ ORDER BY v.distance ASC;
 
 Run the full demo:
 ```bash
-make airbnb
+make airbnb #first place a .gguf model inside the models folder and run your AirBnb MCP server
 ```
 See [USAGE.md](USAGE.md) for complete usage examples.
 
