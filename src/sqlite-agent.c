@@ -84,14 +84,6 @@ static char* agent_get_tools_list(sqlite3 *db) {
     return NULL;
   }
 
-  // Check if the result contains an error (MCP not connected)
-  if (strstr(tools_result, "\"error\"") != NULL ||
-      strstr(tools_result, "Not connected") != NULL) {
-    DF("MCP connection error detected: %s", tools_result);
-    sqlite3_finalize(stmt);
-    return NULL;
-  }
-
   char *formatted = malloc(32768);
   if (!formatted) {
     sqlite3_finalize(stmt);
