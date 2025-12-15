@@ -51,3 +51,6 @@ packages/node/test-platform-packages/
 .DS_Store
 Thumbs.db
 *.db
+
+# Example files
+models/
