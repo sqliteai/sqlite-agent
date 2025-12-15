@@ -47,7 +47,7 @@ sqlite3_close(db)
 Add the [following](https://central.sonatype.com/artifact/ai.sqlite/agent) to your Gradle dependencies:
 
 ```gradle
-implementation 'ai.sqlite:agent:0.1.1'
+implementation 'ai.sqlite:agent:0.1.3'
 ```
 
 Here's an example of how to use the package:
