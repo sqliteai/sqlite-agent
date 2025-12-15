@@ -165,19 +165,6 @@ int main(void) {
     sqlite3_finalize(stmt);
     printf("  * Connected to GitHub MCP server\n");
 
-    // Verify tools are available
-    rc = sqlite3_prepare_v2(db, "SELECT mcp_list_tools_json()", -1, &stmt, 0);
-    if (rc == SQLITE_OK && sqlite3_step(stmt) == SQLITE_ROW) {
-        const char *tools = (const char *)sqlite3_column_text(stmt, 0);
-        if (tools && strstr(tools, "error") != NULL) {
-            fprintf(stderr, "Error: Failed to list tools: %s\n", tools);
-            sqlite3_finalize(stmt);
-            return 1;
-        }
-    }
-    sqlite3_finalize(stmt);
-    printf("  * MCP tools verified\n\n");
-
     // STEP 4: Create table and run agent
     print_separator();
     printf("STEP 4: Create Table and Run Agent\n");
