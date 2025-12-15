@@ -49,7 +49,7 @@ SELECT agent_run('Find affordable apartments in Rome with AC', 8);
 
 See [API.md](API.md) for complete API documentation with examples.
 
-## Complete Example: AirBnb MCP Server
+## Example: AirBnb MCP Server
 
 This example demonstrates combining agent, MCP, AI, and vector extensions:
 
@@ -100,6 +100,7 @@ Run the full demo:
 ```bash
 make airbnb
 ```
+See [USAGE.md](USAGE.md) for complete usage examples.
 
 ## How It Works
 
