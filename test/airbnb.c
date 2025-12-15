@@ -2,6 +2,8 @@
 //  airbnb.c
 //  sqlite-agent
 //
+//  Created by Gioele Cantoni on 05/11/25.
+//
 //  Demonstrates MCP + AI + Vector + Agent extensions working together
 //  to fetch, embed, and semantically search real Airbnb listings.
 //
