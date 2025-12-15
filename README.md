@@ -19,6 +19,52 @@
 
 Download the appropriate pre-built binary for your platform from the [Releases](https://github.com/sqliteai/sqlite-agent/releases) page: we do support **Linux**, **macOS**, **Windows**, **Android** and **iOS**.
 
+#### Swift Package
+
+You can [add this repository as a package dependency to your Swift project](https://developer.apple.com/documentation/xcode/adding-package-dependencies-to-your-app#Add-a-package-dependency). After adding the package, you'll need to set up SQLite with extension loading by following steps 4 and 5 of [this guide](https://github.com/sqliteai/sqlite-extensions-guide/blob/main/platforms/ios.md#4-set-up-sqlite-with-extension-loading).
+
+Here's an example of how to use the package:
+```swift
+import agent
+
+...
+
+var db: OpaquePointer?
+sqlite3_open(":memory:", &db)
+sqlite3_enable_load_extension(db, 1)
+var errMsg: UnsafeMutablePointer<Int8>? = nil
+sqlite3_load_extension(db, agent.path, nil, &errMsg)
+var stmt: OpaquePointer?
+sqlite3_prepare_v2(db, "SELECT agent_version()", -1, &stmt, nil)
+defer { sqlite3_finalize(stmt) }
+sqlite3_step(stmt)
+log("agent_version(): \(String(cString: sqlite3_column_text(stmt, 0)))")
+sqlite3_close(db)
+```
+
+#### Android Package
+
+Add the [following](https://central.sonatype.com/artifact/ai.sqlite/agent) to your Gradle dependencies:
+
+```gradle
+implementation 'ai.sqlite:agent:0.1.1'
+```
+
+Here's an example of how to use the package:
+```java
+SQLiteCustomExtension agentExtension = new SQLiteCustomExtension(getApplicationInfo().nativeLibraryDir + "/agent", null);
+SQLiteDatabaseConfiguration config = new SQLiteDatabaseConfiguration(
+    getCacheDir().getPath() + "/agent_test.db",
+    SQLiteDatabase.CREATE_IF_NECESSARY | SQLiteDatabase.OPEN_READWRITE,
+    Collections.emptyList(),
+    Collections.emptyList(),
+    Collections.singletonList(agentExtension)
+);
+SQLiteDatabase db = SQLiteDatabase.openDatabase(config, null, null);
+```
+
+**Note:** Additional settings and configuration are required for a complete setup. For full implementation details, see the [complete Android example](https://github.com/sqliteai/sqlite-extensions-guide/blob/main/examples/android/README.md).
+
 ### Basic Usage
 
 ```sql
