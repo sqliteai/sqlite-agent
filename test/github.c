@@ -217,8 +217,8 @@ int main(void) {
         return 1;
     }
 
-    const char *result = (const char *)sqlite3_column_text(stmt, 0);
-    printf("  * %s\n", result ? result : "Agent completed");
+    int rows_inserted = sqlite3_column_int(stmt, 0);
+    printf("  * Inserted %d rows into team_activity\n", rows_inserted);
     sqlite3_finalize(stmt);
 
     // Get activity count

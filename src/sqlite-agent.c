@@ -1021,10 +1021,7 @@ static void agent_run_func(
   }
 
   free(tools_list);
-
-  char result[256];
-  snprintf(result, sizeof(result), "Inserted %d rows into %s", rows_inserted, table_name);
-  sqlite3_result_text(context, result, -1, SQLITE_TRANSIENT);
+  sqlite3_result_int(context, rows_inserted);
 }
 
 #ifdef _WIN32

@@ -196,8 +196,8 @@ void* worker_thread(void* arg) {
         return NULL;
     }
 
-    const char *result = (const char *)sqlite3_column_text(stmt, 0);
-    printf("\n  * %s\n", result ? result : "Agent completed");
+    int rows_inserted = sqlite3_column_int(stmt, 0);
+    printf("\n  * Inserted %d rows into listings\n", rows_inserted);
     sqlite3_finalize(stmt);
 
     // Get listing count

@@ -58,8 +58,8 @@ SELECT agent_run(goal, table_name, max_iterations, system_prompt);
 | `system_prompt` | TEXT | No | NULL | Custom system prompt |
 
 **Returns:**
-- **MODE 1 (text):** TEXT – Agent's final response
-- **MODE 2 (table):** TEXT – Status message (e.g., "Inserted 5 rows into listings")
+- **MODE 1 (text):** TEXT – Agent's final response  
+- **MODE 2 (table):** INTEGER – Number of rows inserted into the table
 
 **MODE 1: Text Response**
 

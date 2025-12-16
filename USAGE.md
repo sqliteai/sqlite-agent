@@ -195,7 +195,7 @@ SELECT agent_run(
   'listings',
   8
 );
--- Returns: "Inserted 5 rows into listings"
+-- Returns: 5 (number of rows inserted)
 
 -- 5. Semantic search (works immediately!)
 SELECT title, location, price, v.distance
