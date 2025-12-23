@@ -196,11 +196,11 @@ int main(void) {
 
     const char *analysis_goal =
         "Use search_repositories tool with query 'user:sqliteai' and sort 'updated' to find the 2 most recently updated repositories. "
-        "Then for each repository, use list_commits tool with owner 'sqliteai' and the repo name to get 5 recent commits. "
-        "Insert into team_activity table with these exact fields: username (author.name or author.login), repository (repo name), "
-        "activity_type (always 'commit'), title (commit.message), description (commit.message), "
-        "timestamp (commit.author.date), url (commit.html_url). "
-        "Parse all JSON responses carefully and extract real values, never insert template strings like {{variable}}.";
+        "Then for each repository, use list_commits tool with owner 'sqliteai' and repo name to get 5 recent commits. "
+        "Insert into team_activity table with these exact fields: username (commit author name), repository (repo name), "
+        "activity_type (always 'commit'), title (commit message), description (commit message), "
+        "timestamp (commit date), url (commit URL). "
+        "Use exact parameter names as shown in tool descriptions. Extract real values from responses, never use template syntax.";
 
     rc = sqlite3_prepare_v2(db, "SELECT agent_run(?, 'team_activity', ?)", -1, &stmt, 0);
     if (rc != SQLITE_OK) {

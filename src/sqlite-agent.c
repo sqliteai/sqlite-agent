@@ -34,64 +34,93 @@ static void agent_version(
 static char* agent_call_mcp_tool(sqlite3 *db, const char *tool_name, const char *tool_args) {
   sqlite3_stmt *stmt;
   char sql[1024];
-  snprintf(sql, sizeof(sql), "SELECT mcp_call_tool_json(?, ?)");
+  snprintf(sql, sizeof(sql), "SELECT text FROM mcp_call_tool_respond(?, ?)");
 
   int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
   if (rc != SQLITE_OK) {
-    DF("Failed to prepare mcp_call_tool_json(): %s", sqlite3_errmsg(db));
+    DF("Failed to prepare mcp_call_tool_respond(): %s", sqlite3_errmsg(db));
     return NULL;
   }
 
   sqlite3_bind_text(stmt, 1, tool_name, -1, SQLITE_TRANSIENT);
   sqlite3_bind_text(stmt, 2, tool_args, -1, SQLITE_TRANSIENT);
 
-  rc = sqlite3_step(stmt);
-  if (rc != SQLITE_ROW) {
-    DF("Failed to execute mcp_call_tool_json(): %s", sqlite3_errmsg(db));
+  // Collect all text results from the virtual table
+  char *result_buffer = malloc(32768);
+  if (!result_buffer) {
     sqlite3_finalize(stmt);
     return NULL;
   }
-
-  const char *result = (const char*)sqlite3_column_text(stmt, 0);
-  if (!result) {
-    sqlite3_finalize(stmt);
-    return NULL;
+  result_buffer[0] = '\0';
+  
+  int has_results = 0;
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    const char *text = (const char*)sqlite3_column_text(stmt, 0);
+    if (text) {
+      if (has_results) {
+        strncat(result_buffer, "\n", 32767 - strlen(result_buffer));
+      }
+      strncat(result_buffer, text, 32767 - strlen(result_buffer));
+      has_results = 1;
+    }
   }
-
-  char *result_copy = strdup(result);
+  
   sqlite3_finalize(stmt);
-  return result_copy;
+  
+  if (!has_results) {
+    free(result_buffer);
+    return NULL;
+  }
+  
+  return result_buffer;
 }
 
 static char* agent_get_tools_list(sqlite3 *db) {
   sqlite3_stmt *stmt;
-  int rc = sqlite3_prepare_v2(db, "SELECT mcp_list_tools_json()", -1, &stmt, NULL);
+  int rc = sqlite3_prepare_v2(db, "SELECT name, description, inputschema FROM mcp_list_tools_respond", -1, &stmt, NULL);
   if (rc != SQLITE_OK) {
-    DF("Failed to prepare mcp_list_tools_json(): %s", sqlite3_errmsg(db));
+    DF("Failed to prepare mcp_list_tools_respond query: %s", sqlite3_errmsg(db));
     return NULL;
   }
 
-  rc = sqlite3_step(stmt);
-  if (rc != SQLITE_ROW) {
-    DF("Failed to execute mcp_list_tools_json(): %s", sqlite3_errmsg(db));
-    sqlite3_finalize(stmt);
-    return NULL;
-  }
-
-  const char *tools_result = (const char*)sqlite3_column_text(stmt, 0);
-  if (!tools_result) {
-    sqlite3_finalize(stmt);
-    return NULL;
-  }
-
-  char *formatted = malloc(32768);
+  char *formatted = malloc(65536);  // Increased buffer size for schemas
   if (!formatted) {
     sqlite3_finalize(stmt);
     return NULL;
   }
 
-  snprintf(formatted, 32768, "Available tools (JSON):\n%s", tools_result);
+  strcpy(formatted, "Available tools:\n");
+  int tool_count = 0;
+  
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    const char *name = (const char*)sqlite3_column_text(stmt, 0);
+    const char *description = (const char*)sqlite3_column_text(stmt, 1);
+    const char *inputschema = (const char*)sqlite3_column_text(stmt, 2);
+    
+    if (name) {
+      tool_count++;
+      char tool_line[1024];
+      snprintf(tool_line, sizeof(tool_line), 
+               "- %s: %s\n%s\n", 
+               name, 
+               description ? description : "(no description)",
+               inputschema ? inputschema : "(no input schema)");
+      
+      size_t remaining = 65535 - strlen(formatted);
+      if (strlen(tool_line) < remaining) {
+        strcat(formatted, tool_line);
+      }
+    }
+  }
+  
   sqlite3_finalize(stmt);
+  
+  if (tool_count == 0) {
+    free(formatted);
+    return NULL;
+  }
+  
+  DF("Formatted %d tools for agent context", tool_count);
   return formatted;
 }
 
@@ -432,7 +461,7 @@ static void agent_run_func(
       "   {\"tool\": \"tool_name\", \"args\": {\"param1\": \"value1\", \"param2\": 123}}\n"
       "2. Do NOT include explanations, reasoning, or any other text\n"
       "3. Do NOT use markdown code blocks or backticks\n"
-      "4. ONLY use the exact parameter names shown in the tool signatures above\n"
+      "4. Use the exact parameter names from the reference above\n"
       "5. Use proper JSON: keys in \"quotes\", boolean as true/false (lowercase), strings in \"quotes\"\n"
       "6. You can make MULTIPLE tool calls across iterations to gather detailed data\n"
       "7. Type DONE only when you have retrieved sufficient detailed information\n\n"
