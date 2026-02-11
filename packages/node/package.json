@@ -40,12 +40,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sqliteai/sqlite-agent.git",
+    "url": "git+https://github.com/sqliteai/sqlite-agent.git",
     "directory": "packages/node"
   },
   "homepage": "https://github.com/sqliteai/sqlite-agent#readme",
   "bugs": {
-    "url": "https://github.com/sqliteai/sqlite-agent/issues"
+    "url": "git+https://github.com/sqliteai/sqlite-agent/issues"
   },
   "engines": {
     "node": ">=16.0.0"

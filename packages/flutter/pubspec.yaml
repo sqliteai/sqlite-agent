@@ -1,0 +1,22 @@
+name: sqlite_agent
+version: 0.1.6
+description: >
+  SQLite Agent is a cross-platform SQLite extension that brings autonomous AI
+  agents to your database. It enables databases to run multi-step, tool-using
+  agents that fetch data from external sources (web, APIs, etc.) through
+  sqlite-mcp and populate database tables.
+homepage: https://github.com/sqliteai/sqlite-agent
+repository: https://github.com/sqliteai/sqlite-agent
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  code_assets: ^1.0.0
+  hooks: ^1.0.0
+  path: ^1.8.0
+  sqlite3: ^3.0.0
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.24.0

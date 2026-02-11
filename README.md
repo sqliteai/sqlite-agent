@@ -65,6 +65,27 @@ SQLiteDatabase db = SQLiteDatabase.openDatabase(config, null, null);
 
 **Note:** Additional settings and configuration are required for a complete setup. For full implementation details, see the [complete Android example](https://github.com/sqliteai/sqlite-extensions-guide/blob/main/examples/android/README.md).
 
+#### Flutter Package
+
+Add the [sqlite_agent](https://pub.dev/packages/sqlite_agent) package to your project:
+
+```bash
+flutter pub add sqlite_agent  # Flutter projects
+dart pub add sqlite_agent     # Dart projects
+```
+
+Usage with `sqlite3` package:
+```dart
+import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite_agent/sqlite_agent.dart';
+
+sqlite3.loadSqliteAgentExtension();
+final db = sqlite3.openInMemory();
+print(db.select('SELECT agent_version()'));
+```
+
+For a complete example, see the [Flutter example](https://github.com/sqliteai/sqlite-extensions-guide/blob/main/examples/flutter/README.md).
+
 ### Basic Usage
 
 ```sql

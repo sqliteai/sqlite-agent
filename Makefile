@@ -85,7 +85,7 @@ else ifeq ($(PLATFORM),android)
 	endif
 	CC = $(BIN)/$(ARCH)-linux-$(ANDROID_ABI)-clang
 	TARGET := $(DIST_DIR)/agent.so
-	LDFLAGS += -shared
+	LDFLAGS += -shared -Wl,-z,max-page-size=16384
 	CFLAGS += -fPIC
 	STRIP = $(BIN)/llvm-strip --strip-unneeded $@
 else ifeq ($(PLATFORM),ios)

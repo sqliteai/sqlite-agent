@@ -54,3 +54,10 @@ Thumbs.db
 
 # Example files
 models/
+
+# Dart/Flutter
+.dart_tool/
+pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+packages/flutter/native_libraries/
