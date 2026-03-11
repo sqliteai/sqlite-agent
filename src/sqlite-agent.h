@@ -27,7 +27,7 @@
 extern "C" {
 #endif
 
-#define SQLITE_AGENT_VERSION "0.1.6"
+#define SQLITE_AGENT_VERSION "0.1.7"
 
 /**
  * SQLite extension entry point
