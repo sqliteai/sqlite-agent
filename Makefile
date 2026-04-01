@@ -208,7 +208,7 @@ endef
 LIB_NAMES = ios.dylib ios-sim.dylib macos.dylib
 FMWK_NAMES = ios-arm64 ios-arm64_x86_64-simulator macos-arm64_x86_64
 $(DIST_DIR)/%.xcframework: $(LIB_NAMES)
-	@$(foreach i,1 2 3,\
+	@$(foreach i,1 2,\
 		lib=$(word $(i),$(LIB_NAMES)); \
 		fmwk=$(word $(i),$(FMWK_NAMES)); \
 		mkdir -p $(DIST_DIR)/$$fmwk/agent.framework/Headers; \
@@ -219,6 +219,21 @@ $(DIST_DIR)/%.xcframework: $(LIB_NAMES)
 		mv $(DIST_DIR)/$$lib $(DIST_DIR)/$$fmwk/agent.framework/agent; \
 		install_name_tool -id "@rpath/agent.framework/agent" $(DIST_DIR)/$$fmwk/agent.framework/agent; \
 	)
+	@lib=$(word 3,$(LIB_NAMES)); \
+	fmwk=$(word 3,$(FMWK_NAMES)); \
+	mkdir -p $(DIST_DIR)/$$fmwk/agent.framework/Versions/A/Headers; \
+	mkdir -p $(DIST_DIR)/$$fmwk/agent.framework/Versions/A/Modules; \
+	mkdir -p $(DIST_DIR)/$$fmwk/agent.framework/Versions/A/Resources; \
+	cp $(SRC_DIR)/sqlite-agent.h $(DIST_DIR)/$$fmwk/agent.framework/Versions/A/Headers; \
+	printf "$(PLIST)" > $(DIST_DIR)/$$fmwk/agent.framework/Versions/A/Resources/Info.plist; \
+	printf "$(MODULEMAP)" > $(DIST_DIR)/$$fmwk/agent.framework/Versions/A/Modules/module.modulemap; \
+	mv $(DIST_DIR)/$$lib $(DIST_DIR)/$$fmwk/agent.framework/Versions/A/agent; \
+	install_name_tool -id "@rpath/agent.framework/agent" $(DIST_DIR)/$$fmwk/agent.framework/Versions/A/agent; \
+	ln -sf A $(DIST_DIR)/$$fmwk/agent.framework/Versions/Current; \
+	ln -sf Versions/Current/agent $(DIST_DIR)/$$fmwk/agent.framework/agent; \
+	ln -sf Versions/Current/Headers $(DIST_DIR)/$$fmwk/agent.framework/Headers; \
+	ln -sf Versions/Current/Modules $(DIST_DIR)/$$fmwk/agent.framework/Modules; \
+	ln -sf Versions/Current/Resources $(DIST_DIR)/$$fmwk/agent.framework/Resources;
 	xcodebuild -create-xcframework $(foreach fmwk,$(FMWK_NAMES),-framework $(DIST_DIR)/$(fmwk)/agent.framework) -output $@
 	rm -rf $(foreach fmwk,$(FMWK_NAMES),$(DIST_DIR)/$(fmwk))
 
