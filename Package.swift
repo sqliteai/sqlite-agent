@@ -15,7 +15,7 @@ let package = Package(
         .binaryTarget(
             name: "agentBinary",
             url: "https://github.com/sqliteai/sqlite-agent/releases/download/0.1.8/agent-apple-xcframework-0.1.8.zip",
-            checksum: "0000000000000000000000000000000000000000000000000000000000000000"
+            checksum: "951d59f2953a9fcca946b8b2435057b2e5b14fb504a9ea2330ec381534853a9c"
         ),
         .target(
             name: "agent",
