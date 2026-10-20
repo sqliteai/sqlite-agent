@@ -225,12 +225,6 @@ The agent operates through an iterative loop:
 
 ---
 
-## License
-
-This project is licensed under the [Elastic License 2.0](./LICENSE). You can use, copy, modify, and distribute it under the terms of the license for non-production use. For production or managed service use, please [contact SQLite Cloud, Inc](mailto:info@sqlitecloud.io) for a commercial license.
-
----
-
 ## ☁️ Hosted version
 
 Coordinating multiple agents in production? **[SQLite Cloud](https://sqlite.ai)** is the managed backbone for SQLite-Agent — shared state, webhooks, REST APIs, and observability for fleets of autonomous agents.
