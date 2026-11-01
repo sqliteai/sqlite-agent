@@ -14,12 +14,15 @@ on:
       - '**'
   workflow_dispatch:
 
+# Least privilege by default; the release job widens it for itself. Previously
+# `contents: write` applied to all 16 build jobs, which run third-party actions.
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 jobs:
   build:
+    permissions:
+      contents: read
     if: ${{ !contains(github.event.head_commit.message, '[auto-update]') }}
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container && matrix.container || '' }}
@@ -89,6 +92,7 @@ jobs:
             name: android
             make: PLATFORM=android ARCH=x86_64
             sqlite-amalgamation-zip: https://sqlite.org/2025/sqlite-amalgamation-3490100.zip
+            sqlite-amalgamation-sha256: 6cebd1d8403fc58c30e93939b246f3e6e58d0765a5cd50546f16c00fd805d2c3
 
           # iOS device
           - os: macos-15
@@ -120,13 +124,13 @@ jobs:
         if: contains(matrix.name, 'linux-musl') && matrix.arch == 'x86_64'
         run: apk update && apk add --no-cache git gcc make sqlite musl-dev linux-headers bash
 
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
 
       - name: android setup java
         if: matrix.name == 'android-aar'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -153,38 +157,61 @@ jobs:
       - name: build sqlite-agent
         run: ${{ matrix.name == 'linux-musl' && matrix.arch == 'arm64' && 'docker exec alpine' || '' }} make extension ${{ matrix.make && matrix.make || ''}}
 
+      # Signing runs only on main, which is the only ref that can release
+      # (see the `release` job). Without the ref check these steps ran on every
+      # branch push, so anyone able to push a branch could edit this workflow
+      # and read the Apple signing secrets.
+      # Secrets go through `env` rather than being interpolated into the script
+      # body: an inline secrets expression is expanded into the shell text,
+      # where a value containing a command substitution or a backtick would be
+      # executed, and passing passwords as argv makes them visible to other
+      # processes on the runner.
       - name: create keychain for codesign
-        if: matrix.os == 'macos-15'
+        if: matrix.os == 'macos-15' && github.ref == 'refs/heads/main'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
         run: |
-          echo "${{ secrets.APPLE_CERTIFICATE }}" | base64 --decode > certificate.p12
-          security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
-          security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
-          security import certificate.p12 -k build.keychain -P "${{ secrets.CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
 
       - name: codesign and notarize dylib
-        if: matrix.os == 'macos-15' && matrix.name != 'apple-xcframework'
+        if: matrix.os == 'macos-15' && matrix.name != 'apple-xcframework' && github.ref == 'refs/heads/main'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
         run: |
-          codesign --sign "${{ secrets.APPLE_TEAM_ID }}" --timestamp --options runtime dist/agent.dylib
+          codesign --sign "$APPLE_TEAM_ID" --timestamp --options runtime dist/agent.dylib
           ditto -c -k dist/agent.dylib dist/agent.zip
-          xcrun notarytool submit dist/agent.zip --apple-id "${{ secrets.APPLE_ID }}" --password "${{ secrets.APPLE_PASSWORD }}" --team-id "${{ secrets.APPLE_TEAM_ID }}" --wait
+          xcrun notarytool submit dist/agent.zip --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
           rm dist/agent.zip
 
       - name: codesign and notarize xcframework
-        if: matrix.name == 'apple-xcframework'
+        if: matrix.name == 'apple-xcframework' && github.ref == 'refs/heads/main'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
         run: |
-          find dist/agent.xcframework -name "*.framework" -exec echo "Signing: {}" \; -exec codesign --sign "${{ secrets.APPLE_TEAM_ID }}" --timestamp --options runtime {} \;
-          codesign --sign "${{ secrets.APPLE_TEAM_ID }}" --timestamp --options runtime dist/agent.xcframework
+          find dist/agent.xcframework -name "*.framework" -exec echo "Signing: {}" \; -exec codesign --sign "$APPLE_TEAM_ID" --timestamp --options runtime {} \;
+          codesign --sign "$APPLE_TEAM_ID" --timestamp --options runtime dist/agent.xcframework
           ditto -c -k --keepParent dist/agent.xcframework dist/agent.xcframework.zip
-          xcrun notarytool submit dist/agent.xcframework.zip --apple-id "${{ secrets.APPLE_ID }}" --password "${{ secrets.APPLE_PASSWORD }}" --team-id "${{ secrets.APPLE_TEAM_ID }}" --wait
+          xcrun notarytool submit dist/agent.xcframework.zip --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
           rm -rf dist/agent.xcframework
 
+      # always(), so a failure in the steps above cannot leave the decoded
+      # certificate on disk or the keychain unlocked.
       - name: cleanup keychain for codesign
-        if: matrix.os == 'macos-15'
+        if: always() && matrix.os == 'macos-15' && github.ref == 'refs/heads/main'
         run: |
-          rm certificate.p12
-          security delete-keychain build.keychain
+          rm -f certificate.p12
+          security delete-keychain build.keychain || true
 
       - name: android setup test environment
         if: matrix.name == 'android' && matrix.arch != 'arm64-v8a' && matrix.arch != 'armeabi-v7a'
@@ -197,7 +224,11 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::download and build sqlite3 without SQLITE_OMIT_LOAD_EXTENSION"
-          curl -O ${{ matrix.sqlite-amalgamation-zip }}
+          # The archive is compiled and then executed, so its integrity is
+          # pinned rather than trusted to the transport alone. Update both the
+          # URL and this hash together when moving to a new amalgamation.
+          curl --fail --location --show-error --silent -O ${{ matrix.sqlite-amalgamation-zip }}
+          echo "${{ matrix.sqlite-amalgamation-sha256 }}  $(basename ${{ matrix.sqlite-amalgamation-zip }})" | sha256sum -c -
           unzip sqlite-amalgamation-*.zip
           export ${{ matrix.make }}
           $ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.arch }}-linux-android26-clang sqlite-amalgamation-*/shell.c sqlite-amalgamation-*/sqlite3.c -o sqlite3 -ldl
@@ -216,7 +247,7 @@ jobs:
 
       - name: android test sqlite-agent
         if: matrix.name == 'android' && matrix.arch != 'arm64-v8a' && matrix.arch != 'armeabi-v7a'
-        uses: reactivecircus/android-emulator-runner@v2.34.0
+        uses: reactivecircus/android-emulator-runner@1dcd0090116d15e7c562f8db72807de5e036a4ed # v2.34.0
         with:
           api-level: 26
           arch: ${{ matrix.arch }}
@@ -230,7 +261,7 @@ jobs:
         if: contains(matrix.name, 'linux') || matrix.name == 'windows' || ( matrix.name == 'macos' && matrix.arch != 'x86_64' )
         run: ${{ matrix.name == 'linux-musl' && matrix.arch == 'arm64' && 'docker exec alpine' || '' }} make test ${{ matrix.make && matrix.make || ''}}
 
-      - uses: actions/upload-artifact@v4.6.2
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: agent-${{ matrix.name }}${{ matrix.arch && format('-{0}', matrix.arch) || '' }}
@@ -243,14 +274,20 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main'
 
+    # contents: write to push the Package.swift checksum commit;
+    # id-token: write for npm publish --provenance.
+    permissions:
+      contents: write
+      id-token: write
+
     env:
       GH_TOKEN: ${{ github.token }}
 
     steps:
 
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: actions/download-artifact@v4.2.1
+      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
           path: artifacts
 
@@ -280,8 +317,9 @@ jobs:
         run: |
           VERSION=$(make version)
           if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            LATEST_RELEASE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/${{ github.repository }}/releases/latest)
-            LATEST=$(echo "$LATEST_RELEASE" | jq -r '.name')
+            # gh reads the token from GH_TOKEN in the job env, so it never
+            # appears on a command line other processes can read.
+            LATEST=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.name' 2>/dev/null || echo "")
 
             if [[ "$VERSION" != "$LATEST" || "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
               echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -293,17 +331,26 @@ jobs:
           echo "❌ SQLITE_AGENT_VERSION not found in sqlite-agent.h"
           exit 1
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         if: steps.tag.outputs.version != ''
         with:
           distribution: 'temurin'
           java-version: '17'
 
+      # The signing key and Sonatype credentials arrive as ORG_GRADLE_PROJECT_*
+      # env vars, which Gradle exposes as the same project properties that
+      # build.gradle reads. Passing them as -P put them in the process's argv,
+      # where any other process on the runner could read them.
       - name: release android aar to maven central
         if: steps.tag.outputs.version != ''
-        run: cd packages/android && ./gradlew publishAggregationToCentralPortal -PSIGNING_KEY="${{ secrets.SIGNING_KEY }}" -PSIGNING_PASSWORD="${{ secrets.SIGNING_PASSWORD }}" -PSONATYPE_USERNAME="${{ secrets.MAVEN_CENTRAL_USERNAME }}" -PSONATYPE_PASSWORD="${{ secrets.MAVEN_CENTRAL_TOKEN }}" -PVERSION="${{ steps.tag.outputs.version }}" -PAAR_PATH="../../artifacts/agent-android-aar/agent.aar"
+        env:
+          ORG_GRADLE_PROJECT_SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          ORG_GRADLE_PROJECT_SONATYPE_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_SONATYPE_PASSWORD: ${{ secrets.MAVEN_CENTRAL_TOKEN }}
+        run: cd packages/android && ./gradlew publishAggregationToCentralPortal -PVERSION="${{ steps.tag.outputs.version }}" -PAAR_PATH="../../artifacts/agent-android-aar/agent.aar"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: steps.tag.outputs.version != ''
         with:
           node-version: '24'
@@ -330,7 +377,14 @@ jobs:
           echo "✓ Generated platform packages"
           ls -la platform-packages/
 
-          # Build main package
+          # Build main package.
+          # `npm install` rather than `npm ci`: the optionalDependencies are
+          # this project's own platform packages at the version being released,
+          # which by definition are not on the registry yet and so cannot be in
+          # the lock file. With package-lock.json committed, npm install still
+          # installs the locked toolchain versions — that is what pins the
+          # build — and only the optional platform packages are left to fail,
+          # which is expected here.
           echo "Building main package..."
           npm install
           npm run build
@@ -378,7 +432,7 @@ jobs:
             git push origin main || true
           fi
 
-      - uses: softprops/action-gh-release@v2.2.1
+      - uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
         if: steps.tag.outputs.version != ''
         with:
           token: ${{ secrets.RELEASE_PAT }}

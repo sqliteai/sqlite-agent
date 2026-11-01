@@ -114,6 +114,55 @@ SELECT agent_run(
 
 ---
 
+## Security model
+
+`agent_run()` hands control of what happens next to a language model, so it is
+worth being explicit about what is trusted and what is not.
+
+**What is trusted:** the SQL you issue yourself — the goal, the target table and
+any custom system prompt — and the MCP server you chose in `mcp_connect()`.
+
+**What is not trusted:** everything that comes back from that server. Tool
+names, descriptions and input schemas, and above all tool *results*, which may
+contain whatever the tool fetched: a web page, a file, an API response. All of
+it is quoted into the model's prompt.
+
+Two controls apply:
+
+- **Untrusted text is fenced.** Each `agent_run()` call mints a random
+  delimiter and wraps every block of server-supplied text in it, instructing the
+  model to treat the contents as data. Because the delimiter is unpredictable,
+  injected text cannot close the fence and escape into the instruction region.
+- **Tools are restricted to those advertised.** A tool the model asks for is
+  invoked only if it appeared in `mcp_list_tools_respond`. Text telling the
+  model to "call tool X" cannot reach a tool the server never offered.
+
+**What these controls do not do.** They do not protect you from a malicious MCP
+server: a server you connect to can advertise any tool it likes, and the agent
+will use it. Choosing which server to connect to is your trust decision. They
+also do not make the model's judgement reliable — a sufficiently persuasive
+injected instruction may still get the agent to call an advertised tool with
+arguments you would not have chosen. Treat an agent connected to an untrusted
+server, or to tools that read untrusted content, as semi-trusted: give the MCP
+server the narrowest credentials that still do the job, and prefer read-only
+tools where the server supports it.
+
+**`agent_run()` is marked `SQLITE_DIRECTONLY`.** It can only be called from SQL
+your application issues directly — never from a VIEW, TRIGGER, CHECK
+constraint, generated column or index expression. This matters because the
+function makes network calls and writes rows: without the restriction, merely
+querying a table in a database file somebody else prepared could trigger those
+side effects on your behalf. If you need the result in a view, materialise it
+into a table first.
+
+Finally, `max_iterations` bounds how many LLM and tool round trips a single call
+can make. It is your cost and runtime ceiling, so set it deliberately. Values
+below 1 or above 100 are rejected; the hard cap keeps one SQL statement from
+spending an unbounded amount of time and money against the LLM and the MCP
+server.
+
+---
+
 ## Error Handling
 
 **Common Errors:**
@@ -126,6 +175,17 @@ SELECT agent_run('Find apartments', 5);
 -- Table doesn't exist
 SELECT agent_run('Find apartments', 'nonexistent', 5);
 -- Error: Table does not exist or has no columns
+
+-- max_iterations must be between 1 and 100
+SELECT agent_run('Find apartments', 'listings', 0);
+-- Error: max_iterations must be >= 1
+SELECT agent_run('Find apartments', 'listings', 500);
+-- Error: max_iterations must be <= 100
+
+-- Called from a VIEW or TRIGGER rather than directly
+CREATE VIEW v AS SELECT agent_run('Find apartments', 5);
+SELECT * FROM v;
+-- Error: unsafe use of agent_run()
 
 -- LLM not loaded (table mode)
 SELECT agent_run('Find apartments', 'listings', 5);

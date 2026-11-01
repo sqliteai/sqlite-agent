@@ -33,7 +33,15 @@ MAKEFLAGS += -j$(CPUS)
 
 # Compiler and flags
 CC = gcc
-CFLAGS = -Wall -Wextra -Wno-unused-parameter -I$(SRC_DIR) -I$(LIBS_DIR)
+
+# Exploit mitigations applied on every platform. _FORTIFY_SOURCE needs an
+# optimised build, which the extension target is (-O3); it is undefined first so
+# a toolchain that predefines it does not warn about the redefinition. These
+# matter here because the code works with fixed-size buffers: with fortify in
+# place an overrun aborts instead of silently corrupting memory.
+HARDEN_CFLAGS = -fstack-protector-strong -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
+
+CFLAGS = -Wall -Wextra -Wno-unused-parameter -I$(SRC_DIR) -I$(LIBS_DIR) $(HARDEN_CFLAGS)
 
 # Directories
 SRC_DIR = src
@@ -49,7 +57,7 @@ OBJ_FILES = $(patsubst %.c, $(BUILD_DIR)/%.o, $(notdir $(SRC_FILES)))
 # Platform-specific settings
 ifeq ($(PLATFORM),windows)
 	TARGET := $(DIST_DIR)/agent.dll
-	LDFLAGS += -shared
+	LDFLAGS += -shared -Wl,--nxcompat -Wl,--dynamicbase
 	DEF_FILE := $(BUILD_DIR)/agent.def
 	STRIP = strip --strip-unneeded $@
 else ifeq ($(PLATFORM),macos)
@@ -85,7 +93,7 @@ else ifeq ($(PLATFORM),android)
 	endif
 	CC = $(BIN)/$(ARCH)-linux-$(ANDROID_ABI)-clang
 	TARGET := $(DIST_DIR)/agent.so
-	LDFLAGS += -shared -Wl,-z,max-page-size=16384
+	LDFLAGS += -shared -Wl,-z,max-page-size=16384 -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack
 	CFLAGS += -fPIC
 	STRIP = $(BIN)/llvm-strip --strip-unneeded $@
 else ifeq ($(PLATFORM),ios)
@@ -102,7 +110,7 @@ else ifeq ($(PLATFORM),ios-sim)
 	STRIP = strip -x -S $@
 else # linux
 	TARGET := $(DIST_DIR)/agent.so
-	LDFLAGS += -shared
+	LDFLAGS += -shared -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack
 	CFLAGS += -fPIC
 	STRIP = strip --strip-unneeded $@
 endif

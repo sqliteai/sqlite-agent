@@ -222,13 +222,14 @@ function main() {
       // Copy LICENSE
       fs.copyFileSync(licensePath, path.join(platformDir, 'LICENSE'));
 
-      // Copy binary if it exists
-      if (fs.existsSync(artifactPath)) {
-        fs.copyFileSync(artifactPath, path.join(platformDir, platform.binaryName));
-        console.log(`✓ ${platform.name} (with binary)`);
-      } else {
-        console.log(`✓ ${platform.name} (no binary found at ${artifactPath})`);
+      // A package without its binary is useless to consumers and would burn the
+      // version number on npm, so a missing artifact fails the run instead of
+      // being reported as a success.
+      if (!fs.existsSync(artifactPath)) {
+        throw new Error(`binary not found at ${artifactPath}`);
       }
+      fs.copyFileSync(artifactPath, path.join(platformDir, platform.binaryName));
+      console.log(`✓ ${platform.name} (with binary)`);
 
       successCount++;
     } catch (error) {
