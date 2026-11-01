@@ -1,11 +1,31 @@
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import {
   getCurrentPlatform,
   getPlatformPackageName,
   getBinaryName,
   type Platform
 } from './platform.js';
+
+/**
+ * Returns a `require` that works in both the CommonJS and the ESM build.
+ *
+ * A bare `require()` call cannot be used here: the bundler rewrites it into a
+ * stub that throws `Dynamic require of "..." is not supported` in the ESM
+ * output, which made every `import` consumer fail with a misleading
+ * "platform package is not installed" error even when it was installed.
+ */
+function getRequire(): NodeRequire {
+  // `__filename` exists only in the CJS build and `import.meta.url` only in the
+  // ESM build, and the bundler rewrites neither, so this picks the right base
+  // in both without depending on any bundler shim. Testing `require` itself
+  // does not work: the bundler replaces that identifier with its own stub,
+  // which is a function and therefore passes a `typeof` check before throwing.
+  const base =
+    typeof __filename !== 'undefined' ? __filename : import.meta.url;
+  return createRequire(base);
+}
 
 /**
  * Error thrown when the SQLite Agent extension cannot be found
@@ -25,9 +45,9 @@ function tryLoadPlatformPackage(): string | null {
   try {
     const packageName = getPlatformPackageName();
 
-    // Try to dynamically import the platform package
-    // This works in both CommonJS and ESM
-    const platformPackage = require(packageName);
+    // Load the platform package through a require that is valid in both the
+    // CommonJS and the ESM build (see getRequire above).
+    const platformPackage = getRequire()(packageName);
 
     if (platformPackage?.path && typeof platformPackage.path === 'string') {
       if (existsSync(platformPackage.path)) {

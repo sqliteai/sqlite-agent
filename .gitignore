@@ -28,7 +28,9 @@ jniLibs/
 
 # Node.js
 node_modules/
-package-lock.json
+# package-lock.json IS tracked on purpose: it pins the build toolchain
+# (tsup/esbuild/typescript) that produces the published bundle, so a
+# compromised transitive dependency cannot slip into a release unnoticed.
 *.tsbuildinfo
 coverage/
 *.log
